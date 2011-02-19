@@ -1,0 +1,35 @@
+#!/bin/sh
+
+if [ ! $(id -u) -eq 0 ]; then
+    echo Must be run as root
+    exit 1
+fi
+
+user_name="ssh-pwd-enabler"
+if [ $(cat /etc/passwd | awk -F ':' '{print $1}' | grep "^$user_name\$" | wc -l) -gt 0 ];then
+    echo A user $user_name already exists
+    exit 1
+fi
+
+if [ \( ! -w /etc/ssh/sshd_config \) -o \( ! -r /etc/ssh/sshd_config  \) ]; then 
+    echo /etc/ssh/sshd_config is not found
+    exit 1
+fi
+
+if grep -e 'Match User $user_name' /etc/ssh/sshd_config; then
+    A Match block for $user_name already exists in /etc/ssh/sshd_config
+    exit 1
+fi
+
+useradd -m $user_name
+
+mv /etc/ssh/sshd_config /tmp/sshd_config
+sed -e 's/^[ ]*PasswordAuthentication yes/PasswordAuthentication no/' </tmp/sshd_config >/etc/ssh/sshd_config
+
+cat >>/etc/ssh/sshd_config <<EOT
+
+########################################################
+Match User $user_name
+PasswordAuthentication yes
+EOT
+
